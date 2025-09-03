@@ -4,14 +4,14 @@
 static int pinIn1, pinIn2, pinEna;
 
 static const int pwmChannel    = 0;     // 0~15
-static const int pwmFreq       = 2000;  // 2kHz
+static const int pwmFreq       = 20000;  // 20kHz
 static const int pwmResolution = 10;    // 10-bit (0~1023)
 static const int DUTY_MAX      = 950;   // 필요시 1023까지 가능
 
-// 요청 사양: 정방향 5초 → 15초 대기 → 역방향 5초
-static const unsigned long FWD_MS  = 5000;
-static const unsigned long WAIT_MS = 15000;
-static const unsigned long REV_MS  = 5000;
+// 요청 사양: 정방향 2초 → 10초 대기 → 역방향 2초
+static const unsigned long FWD_MS  = 2000;
+static const unsigned long WAIT_MS = 10000;
+static const unsigned long REV_MS  = 2000;
 
 static inline void setDir(bool forward) {
   digitalWrite(pinIn1, forward ? HIGH : LOW);
@@ -22,6 +22,31 @@ static inline void stopMotor() {
   ledcWrite(pwmChannel, 0);   // PWM 0
   digitalWrite(pinIn1, LOW);  // 코스트 정지
   digitalWrite(pinIn2, LOW);
+}
+
+// 시동 토크 확보용 킥/램프업 (accelMs 동안 startDuty→dutyPeak로 빠르게 상승)
+static void kickStart(bool forward,
+                      int dutyPeak      = DUTY_MAX,
+                      unsigned long accelMs = 300,
+                      int startDuty     = 700) {
+  if (dutyPeak > DUTY_MAX) dutyPeak = DUTY_MAX;
+  if (startDuty < 0) startDuty = 0;
+  if (startDuty > dutyPeak) startDuty = dutyPeak;
+
+  setDir(forward);
+
+  unsigned long t0 = millis();
+  int duty = startDuty;
+
+  while (millis() - t0 < accelMs) {
+    ledcWrite(pwmChannel, duty);
+    duty += 20;                           // 상승 속도(환경에 맞게 조정 가능)
+    if (duty > dutyPeak) duty = dutyPeak;
+    delay(5);                             // 너무 짧으면 CPU 점유↑
+  }
+
+  // 가속 종료 후 정점 유지
+  ledcWrite(pwmChannel, dutyPeak);
 }
 
 void setupUmbrella(int in1, int in2, int ena) {
