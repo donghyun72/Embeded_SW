@@ -3,10 +3,10 @@
 
 static int pinIn1, pinIn2, pinEna;
 
-static const int pwmChannel    = 0;     // 0~15
-static const int pwmFreq       = 20000;  // 20kHz
-static const int pwmResolution = 10;    // 10-bit (0~1023)
-static const int DUTY_MAX      = 950;   // 필요시 1023까지 가능
+static const int pwmChannel    = 0;      // 0~15
+static const int pwmFreq       = 20000;  // 20kHz (가청대역 밖)
+static const int pwmResolution = 10;     // 10-bit (0~1023)
+static const int DUTY_MAX      = 1023;   // 최대 듀티
 
 // 요청 사양: 정방향 2초 → 10초 대기 → 역방향 2초
 static const unsigned long FWD_MS  = 2000;
@@ -67,18 +67,17 @@ void setupUmbrella(int in1, int in2, int ena) {
 }
 
 void moveUmbrella() {
-  // 정방향 5초 (열기)
-  setDir(true);
-  ledcWrite(pwmChannel, DUTY_MAX);
-  delay(FWD_MS);
+  // 정방향 (열기) - 킥/램프업 후 잔여 시간 유지
+  kickStart(true, DUTY_MAX, 300, 700);
+  if (FWD_MS > 300) delay(FWD_MS - 300);
   stopMotor();
 
-  // 열린 상태 유지 15초
+  // 열린 상태 유지
   delay(WAIT_MS);
 
-  // 역방향 5초 (닫기)
-  setDir(false);
-  ledcWrite(pwmChannel, DUTY_MAX);
-  delay(REV_MS);
+  // 역방향 (닫기) - 킥/램프업 후 잔여 시간 유지
+  kickStart(false, DUTY_MAX, 300, 700);
+  if (REV_MS > 300) delay(REV_MS - 300);
   stopMotor();
 }
+ 
